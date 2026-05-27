@@ -1,38 +1,38 @@
-name: OHC Network - Zoom Drive
+name: Zoom to Drive Sync
 
 on:
   schedule:
-    - cron: '0 3 * * *' # runs every Sunday at 12:00 AM UTC
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       lookback_days:
-        description: Number of days to keep Zoom meeting recordings
+        description: 'Number of days to look back'
         required: false
-      end_date:
-        description: End date of Zoom meeting recordings to keep (YYYY-MM-DD)
-        required: false
-      delete_on_success:
-        description: 'Delete recordings after uploading to Google Drive'
-        required: false
-        default: false
+        default: '1'
 
 jobs:
-  zoomdrive:
+  sync:
     runs-on: ubuntu-latest
-    environment: Open Healthcare Network
     name: Download Zoom recordings and upload to Google Drive
+
     steps:
-      - name: Download Meetings from Zoom Cloud and Upload to Google Drive
-        id: zoomdrive
-        uses: coronasafe/zoomdrive@main
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          zoom_account_id: ${{ secrets.ZOOM_ACCOUNT_ID }}
-          zoom_client_id: ${{ secrets.ZOOM_CLIENT_ID }}
-          zoom_client_secret: ${{ secrets.ZOOM_CLIENT_SECRET }}
+          node-version: '20'
 
-          lookback_days: ${{ github.event.inputs.lookback_days || 7 }}
-          end_date: ${{ github.event.inputs.end_date }}
-          delete_on_success: ${{ github.event.inputs.delete_on_success || true }}
+      - name: Install dependencies
+        run: npm install googleapis axios qs
 
-          gsa_credentials: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS }}
-          meeting_gdrive_folder_map: ${{ secrets.MEETING_GDRIVE_FOLDER_MAP }}
+      - name: Run sync
+        env:
+          ZOOM_ACCOUNT_ID: ${{ secrets.ZOOM_ACCOUNT_ID }}
+          ZOOM_CLIENT_ID: ${{ secrets.ZOOM_CLIENT_ID }}
+          ZOOM_CLIENT_SECRET: ${{ secrets.ZOOM_CLIENT_SECRET }}
+          GSA_CREDENTIALS: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '1' }}
+        run: node sync.mjs

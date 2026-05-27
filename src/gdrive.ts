@@ -1,7 +1,6 @@
 import * as core from '@actions/core'
 import type {drive_v3} from 'googleapis'
 import fs from 'fs'
-
 import {prettyFileSize, progressBar} from './utils'
 import {ZoomFile} from './zoom'
 
@@ -15,6 +14,7 @@ export async function createFolder(
   parent: string
 ): Promise<string | null | undefined> {
   const res = await drive.files.create({
+    supportsAllDrives: true,
     requestBody: {
       name,
       mimeType: 'application/vnd.google-apps.folder',
@@ -22,7 +22,6 @@ export async function createFolder(
     },
     fields: 'id',
   })
-
   return res.data.id
 }
 
@@ -33,9 +32,7 @@ export async function syncToGoogleDrive(
   meetingFolderMap: {[key: string]: string | false},
   onSuccess: (file: ZoomFile) => void
 ): Promise<drive_v3.Schema$File[]> {
-  // Skip meetings that have been marked as false
   files = files.filter(file => meetingFolderMap[file.id] !== false)
-
   const responses = []
   const subFoldersLookup: {[key: string]: string} = {}
   let uploadedSize = 0
@@ -55,14 +52,12 @@ export async function syncToGoogleDrive(
     }
 
     const lookupId = `${file.id}.${file.date}`
-
     if (!subFoldersLookup[lookupId]) {
       log(
         `${progressBar(uploadedSize / total_size)} of ${prettyFileSize(
           total_size
         )} - Creating subfolder "${file.date}" for meeting "${file.topic}" (${file.id})`
       )
-
       const driveFolderId = await createFolder(
         drive,
         meetingFolderMap[file.id]
@@ -84,7 +79,6 @@ export async function syncToGoogleDrive(
       mimeType: 'application/octet-stream',
       body: fs.createReadStream(file.path),
     }
-
     const subFolder = subFoldersLookup[lookupId]
 
     log(
@@ -96,6 +90,7 @@ export async function syncToGoogleDrive(
     )
 
     const res = await drive.files.create({
+      supportsAllDrives: true,
       requestBody: {
         name,
         parents: [subFolder],
@@ -106,7 +101,6 @@ export async function syncToGoogleDrive(
 
     uploadedSize += file.recording.file_size
     responses.push(res as drive_v3.Schema$File)
-
     onSuccess(file)
   }
 

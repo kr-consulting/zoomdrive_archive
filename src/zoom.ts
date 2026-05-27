@@ -92,16 +92,33 @@ export const getRecordings = async (
   from: string,
   to: string
 ): Promise<MeetingsResponse> => {
-  log(`Obtaining Meetings and Recordings between '${from}' and '${to}'`)
-  const res = await instance.get(
-    `/users/${user_id}/recordings?page_size=100&from=${from}&to=${to}`
-  )
-  return res.data
+  log(`Obtaining all users and their recordings between '${from}' and '${to}'`)
+
+  // Fetch all active users in the organization
+  const usersRes = await instance.get('/users?status=active&page_size=300')
+  const users = usersRes.data.users || []
+
+  log(`Found ${users.length} users`)
+
+  let allMeetings: ZoomMeeting[] = []
+
+  for (const user of users) {
+    try {
+      const res = await instance.get(
+        `/users/${user.id}/recordings?page_size=100&from=${from}&to=${to}`
+      )
+      const meetings = res.data.meetings || []
+      log(`User ${user.email} — ${meetings.length} meetings found`)
+      allMeetings = allMeetings.concat(meetings)
+    } catch (e) {
+      log(`Failed to get recordings for user ${user.email}: ${e}`)
+    }
+  }
+
+  log(`Total meetings found: ${allMeetings.length}`)
+  return {meetings: allMeetings}
 }
 
-/**
- * @returns Recording File Name (format: "10-00-00 GMT-0700 (Pacific Daylight Time) - Audio Only.m4a")
- */
 export const getRecordingFileName = (
   recording: ZoomRecording,
   meeting: ZoomMeeting
@@ -114,9 +131,6 @@ export const getRecordingFileName = (
   return `${timestamp} - ${rec_type}.${ext}`
 }
 
-/**
- * @returns Meeting Directory (format: "Weekly Sync Meeting/2023-06-16")
- */
 const getMeetingDirectory = ({id, start_time, timezone}: ZoomMeeting): string => {
   log(`Getting meeting directory for ${id}, timezone: ${timezone}`)
   const ts = convertTZ(start_time, timezone).toISOString().split('T')[0]

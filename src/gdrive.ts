@@ -15,10 +15,12 @@ export async function createFolder(
 ): Promise<string | null | undefined> {
   const res = await drive.files.create({
     supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
     requestBody: {
       name,
       mimeType: 'application/vnd.google-apps.folder',
       parents: [parent],
+      driveId: parent,
     },
     fields: 'id',
   })
@@ -91,6 +93,7 @@ export async function syncToGoogleDrive(
 
     const res = await drive.files.create({
       supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
       requestBody: {
         name,
         parents: [subFolder],

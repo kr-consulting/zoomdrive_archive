@@ -8,27 +8,24 @@ const log = (msg: string): void => {
   core.debug(`[gdrive-api] ${msg}`)
 }
 
-const SHARED_DRIVE_ID = process.env.SHARED_DRIVE_ID || ''
-
 export async function createFolder(
   drive: drive_v3.Drive,
   name: string,
-  parent: string,
-  driveId?: string
+  parent: string
 ): Promise<string | null | undefined> {
   const requestBody: any = {
     name,
     mimeType: 'application/vnd.google-apps.folder',
     parents: [parent],
+    driveId: parent,
   }
 
-  const params: any = {
+  const res = await drive.files.create({
     supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
     requestBody,
     fields: 'id',
-  }
-
-  const res = await drive.files.create(params)
+  })
   return res.data.id
 }
 
@@ -98,9 +95,11 @@ export async function syncToGoogleDrive(
 
     const res = await drive.files.create({
       supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
       requestBody: {
         name,
         parents: [subFolder],
+        driveId: subFolder,
       },
       media,
       fields: 'id',

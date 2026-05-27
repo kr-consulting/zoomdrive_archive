@@ -8,22 +8,27 @@ const log = (msg: string): void => {
   core.debug(`[gdrive-api] ${msg}`)
 }
 
+const SHARED_DRIVE_ID = process.env.SHARED_DRIVE_ID || ''
+
 export async function createFolder(
   drive: drive_v3.Drive,
   name: string,
-  parent: string
+  parent: string,
+  driveId?: string
 ): Promise<string | null | undefined> {
-  const res = await drive.files.create({
+  const requestBody: any = {
+    name,
+    mimeType: 'application/vnd.google-apps.folder',
+    parents: [parent],
+  }
+
+  const params: any = {
     supportsAllDrives: true,
-    includeItemsFromAllDrives: true,
-    requestBody: {
-      name,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parent],
-      driveId: parent,
-    },
+    requestBody,
     fields: 'id',
-  })
+  }
+
+  const res = await drive.files.create(params)
   return res.data.id
 }
 
@@ -58,20 +63,20 @@ export async function syncToGoogleDrive(
       log(
         `${progressBar(uploadedSize / total_size)} of ${prettyFileSize(
           total_size
-        )} - Creating subfolder "${file.date}" for meeting "${file.topic}" (${file.id})`
+        )} - Creating subfolder for meeting "${file.topic}" (${file.id})`
       )
-      const driveFolderId = await createFolder(
-        drive,
-        meetingFolderMap[file.id]
-          ? file.date
-          : `${file.date} - ${file.topic} (${file.id})`,
-        folderId
-      )
+
+      const folderName = meetingFolderMap[file.id]
+        ? file.date
+        : `${file.date} - ${file.topic} (${file.id})`
+
+      const driveFolderId = await createFolder(drive, folderName, folderId)
+
       if (driveFolderId) {
         subFoldersLookup[lookupId] = driveFolderId
       } else {
         throw new Error(
-          `Failed to create folder "${file.date}" for meeting "${file.topic}" (${file.id})`
+          `Failed to create folder for meeting "${file.topic}" (${file.id})`
         )
       }
     }
@@ -93,7 +98,6 @@ export async function syncToGoogleDrive(
 
     const res = await drive.files.create({
       supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
       requestBody: {
         name,
         parents: [subFolder],
